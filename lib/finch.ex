@@ -76,6 +76,11 @@ defmodule Finch do
       before being closed during a checkout attempt.
       """,
       default: :infinity
+    ],
+    start_pool_metrics: [
+      type: :boolean,
+      doc: "When true, pool metrics will be collected and avaiable through Finch.pool_status/2",
+      default: false
     ]
   ]
 
@@ -242,7 +247,8 @@ defmodule Finch do
       conn_opts: conn_opts,
       protocol: valid[:protocol],
       conn_max_idle_time: to_native(valid[:max_idle_time] || valid[:conn_max_idle_time]),
-      pool_max_idle_time: valid[:pool_max_idle_time]
+      pool_max_idle_time: valid[:pool_max_idle_time],
+      start_pool_metrics: valid[:start_pool_metrics]
     }
   end
 
@@ -388,7 +394,7 @@ defmodule Finch do
 
   defp __stream__(%Request{} = req, name, acc, fun, opts) do
     {pool, pool_mod} = get_pool(req, name)
-    pool_mod.request(pool, req, acc, fun, opts)
+    pool_mod.request(pool, req, acc, fun, name, opts)
   end
 
   @doc """
@@ -516,7 +522,7 @@ defmodule Finch do
   @spec async_request(Request.t(), name(), request_opts()) :: request_ref()
   def async_request(%Request{} = req, name, opts \\ []) do
     {pool, pool_mod} = get_pool(req, name)
-    pool_mod.async_request(pool, req, opts)
+    pool_mod.async_request(pool, req, name, opts)
   end
 
   @doc """
@@ -535,5 +541,10 @@ defmodule Finch do
 
   defp get_pool(%Request{scheme: scheme, host: host, port: port}, name) do
     PoolManager.get_pool(name, {scheme, host, port})
+  end
+
+  def get_pool_status(finch_name, shp) do
+    {_pool, pool_mod} = PoolManager.get_pool(finch_name, shp)
+    pool_mod.get_pool_status(finch_name, shp)
   end
 end

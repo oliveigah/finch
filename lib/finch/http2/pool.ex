@@ -28,7 +28,7 @@ defmodule Finch.HTTP2.Pool do
   # Call the pool with the request. The pool will multiplex multiple requests
   # and stream the result set back to the calling process using `send`
   @impl Finch.Pool
-  def request(pool, request, acc, fun, opts) do
+  def request(pool, request, acc, fun, _name, opts) do
     opts = Keyword.put_new(opts, :receive_timeout, @default_receive_timeout)
     timeout = opts[:receive_timeout]
     request_ref = make_request_ref(pool)
@@ -58,7 +58,7 @@ defmodule Finch.HTTP2.Pool do
   end
 
   @impl Finch.Pool
-  def async_request(pool, req, opts) do
+  def async_request(pool, req, _name, opts) do
     opts = Keyword.put_new(opts, :receive_timeout, @default_receive_timeout)
     request_ref = make_request_ref(pool)
 
@@ -71,6 +71,11 @@ defmodule Finch.HTTP2.Pool do
   def cancel_async_request({_, {pool, _}} = request_ref) do
     :ok = :gen_statem.call(pool, {:cancel, request_ref})
     clean_responses(request_ref)
+  end
+
+  @impl Finch.Pool
+  def get_pool_status(_finch_name, _shp) do
+    {:error, :not_impemented_yet}
   end
 
   defp make_request_ref(pool) do
