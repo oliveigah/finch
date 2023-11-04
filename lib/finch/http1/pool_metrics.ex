@@ -1,4 +1,7 @@
 defmodule Finch.HTTP1.PoolMetrics do
+  @moduledoc """
+  HTTP1 Pool metrics. TODO: Add more description
+  """
   defstruct [
     :available_connections,
     :in_use_connections,
