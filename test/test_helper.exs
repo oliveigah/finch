@@ -1,5 +1,3 @@
-Mimic.copy(Finch.HTTP1.PoolMetrics)
-
 ExUnit.start()
 Application.ensure_all_started(:bypass)
 

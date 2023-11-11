@@ -124,7 +124,7 @@ defmodule Finch.PoolManager do
   defp pool_args(shp, config, %{protocol: :http1} = pool_config),
     do:
       {shp, config.registry_name, pool_config.size, pool_config, pool_config.pool_max_idle_time,
-       pool_config.start_pool_metrics}
+       pool_config.start_pool_metrics?}
 
   defp pool_args(shp, config, %{protocol: :http2} = pool_config),
     do: {shp, config.registry_name, pool_config.size, pool_config}

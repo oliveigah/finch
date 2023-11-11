@@ -45,8 +45,7 @@ defmodule Finch.MixProject do
       {:bypass, "~> 2.0", only: :test},
       {:cowboy, "~> 2.7", only: [:dev, :test]},
       {:plug_cowboy, "~> 2.0", only: [:dev, :test]},
-      {:x509, "~> 0.8", only: [:dev, :test]},
-      {:mimic, "~> 1.7", only: :test}
+      {:x509, "~> 0.8", only: [:dev, :test]}
     ]
   end
 
