@@ -374,7 +374,7 @@ defmodule Finch.HTTP2.PoolTest do
           start_pool(port)
         end)
 
-      ref = Pool.async_request(pool, req, nil, [])
+      ref = Pool.async_request(pool, req, [])
 
       assert_recv_frames([headers(stream_id: stream_id)])
 
@@ -388,7 +388,7 @@ defmodule Finch.HTTP2.PoolTest do
       :timer.sleep(10)
 
       # We can't send any more requests since the connection is closed for writing.
-      ref2 = Pool.async_request(pool, req, nil, [])
+      ref2 = Pool.async_request(pool, req, [])
       assert_receive {^ref2, {:error, %Finch.Error{reason: :read_only}}}
 
       server_send_frames([
@@ -406,7 +406,7 @@ defmodule Finch.HTTP2.PoolTest do
       Process.sleep(50)
 
       # If we try to make a request now that the server shut down, we get an error.
-      ref3 = Pool.async_request(pool, req, nil, [])
+      ref3 = Pool.async_request(pool, req, [])
       assert_receive {^ref3, {:error, %Finch.Error{reason: :disconnected}}}
     end
 
@@ -418,7 +418,7 @@ defmodule Finch.HTTP2.PoolTest do
           start_pool(port)
         end)
 
-      ref = Pool.async_request(pool, req, nil, [])
+      ref = Pool.async_request(pool, req, [])
 
       assert_recv_frames([headers(stream_id: stream_id)])
 
@@ -446,7 +446,7 @@ defmodule Finch.HTTP2.PoolTest do
           start_pool(port)
         end)
 
-      ref = Pool.async_request(pool, %{req | headers: [{"foo", "bar"}]}, nil, [])
+      ref = Pool.async_request(pool, %{req | headers: [{"foo", "bar"}]}, [])
 
       assert_receive {^ref, {:error, %{reason: {:max_header_list_size_exceeded, _, _}}}}
     end
@@ -490,7 +490,7 @@ defmodule Finch.HTTP2.PoolTest do
       {:data, value}, {status, headers, body} -> {:cont, {status, headers, body <> value}}
     end
 
-    Pool.request(pool, req, acc, fun, nil, opts)
+    Pool.request(pool, req, acc, fun, opts)
   end
 
   defp start_server_and_connect_with(opts \\ [], fun) do

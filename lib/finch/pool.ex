@@ -9,13 +9,12 @@ defmodule Finch.Pool do
               Finch.Request.t(),
               acc,
               Finch.stream(acc),
-              finch_name :: atom(),
               list()
             ) ::
               {:ok, acc} | {:error, term()}
             when acc: term()
 
-  @callback async_request(pid(), Finch.Request.t(), finch_name :: atom(), list()) :: request_ref()
+  @callback async_request(pid(), Finch.Request.t(), list()) :: request_ref()
 
   @callback cancel_async_request(request_ref()) :: :ok
 

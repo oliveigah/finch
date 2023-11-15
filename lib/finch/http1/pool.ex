@@ -28,7 +28,7 @@ defmodule Finch.HTTP1.Pool do
   end
 
   @impl Finch.Pool
-  def request(pool, req, acc, fun, _name, opts) do
+  def request(pool, req, acc, fun, opts) do
     pool_timeout = Keyword.get(opts, :pool_timeout, 5_000)
     receive_timeout = Keyword.get(opts, :receive_timeout, 15_000)
     metadata = %{request: req, pool: pool}
@@ -75,7 +75,7 @@ defmodule Finch.HTTP1.Pool do
   end
 
   @impl Finch.Pool
-  def async_request(pool, req, finch_name, opts) do
+  def async_request(pool, req, opts) do
     owner = self()
 
     pid =
@@ -88,7 +88,6 @@ defmodule Finch.HTTP1.Pool do
                req,
                {owner, monitor, request_ref},
                &send_async_response/2,
-               finch_name,
                opts
              ) do
           {:ok, _} -> send(owner, {request_ref, :done})
