@@ -178,11 +178,12 @@ defmodule Finch.HTTP2.Pool do
   end
 
   def start_link(opts) do
-    :gen_statem.start_link(__MODULE__, opts, [])
+    {:ok, pid} = :gen_statem.start_link(__MODULE__, opts, [])
+    {:ok, pid, nil}
   end
 
   @impl true
-  def init({{scheme, host, port} = shp, registry, _pool_size, pool_opts}) do
+  def init({{scheme, host, port} = shp, registry, _pool_size, pool_opts, _start_metrics?, _pool_idx}) do
     {:ok, _} = Registry.register(registry, shp, __MODULE__)
 
     data = %{

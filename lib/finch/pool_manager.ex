@@ -72,18 +72,31 @@ defmodule Finch.PoolManager do
 
   defp do_start_pools(shp, config) do
     pool_config = pool_config(config, shp)
-
-    pool_args = pool_args(shp, config, pool_config)
-
     pool_mod = pool_mod(pool_config.protocol)
 
-    Enum.map(1..pool_config.count, fn _ ->
-      # Choose pool type here...
-      {:ok, pid} = DynamicSupervisor.start_child(config.supervisor_name, {pool_mod, pool_args})
-      {pid, pool_mod}
-    end)
-    |> hd()
+    init_results =
+      Enum.map(1..pool_config.count, fn pool_idx ->
+        pool_args = pool_args(shp, config, pool_config, pool_idx)
+        # Choose pool type here...
+        {:ok, pid, metric_ref} =
+          DynamicSupervisor.start_child(config.supervisor_name, {pool_mod, pool_args})
+
+        {pid, pool_mod, metric_ref}
+      end)
+
+    if pool_config.start_pool_metrics? do
+      put_metrics_refs(config, shp, Enum.map(init_results, &elem(&1, 2)))
+    end
+
+    {pid, pool_mod, _} = List.first(init_results)
+    {pid, pool_mod}
   end
+
+  defp put_metrics_refs(%{registry_name: name}, shp, refs),
+    do: :persistent_term.put({__MODULE__, :metrics_refs, name, shp}, refs)
+
+  def get_metrics_refs(finch_name, shp),
+    do: :persistent_term.get({__MODULE__, :metrics_refs, finch_name, shp}, nil)
 
   defp pool_config(%{pools: config, default_pool_config: default}, shp) do
     config
@@ -121,11 +134,24 @@ defmodule Finch.PoolManager do
   defp pool_mod(:http1), do: Finch.HTTP1.Pool
   defp pool_mod(:http2), do: Finch.HTTP2.Pool
 
-  defp pool_args(shp, config, %{protocol: :http1} = pool_config),
-    do:
-      {shp, config.registry_name, pool_config.size, pool_config, pool_config.pool_max_idle_time,
-       pool_config.start_pool_metrics?}
+  defp pool_args(shp, config, %{protocol: :http1} = pool_config, pool_idx),
+    do: {
+      shp,
+      config.registry_name,
+      pool_config.size,
+      pool_config,
+      pool_config.pool_max_idle_time,
+      pool_config.start_pool_metrics?,
+      pool_idx
+    }
 
-  defp pool_args(shp, config, %{protocol: :http2} = pool_config),
-    do: {shp, config.registry_name, pool_config.size, pool_config}
+  defp pool_args(shp, config, %{protocol: :http2} = pool_config, pool_idx),
+    do: {
+      shp,
+      config.registry_name,
+      pool_config.size,
+      pool_config,
+      pool_config.start_pool_metrics?,
+      pool_idx
+    }
 end

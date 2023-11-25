@@ -8,7 +8,15 @@ defmodule Finch.HTTP1.Pool do
   alias Finch.HTTP1.PoolMetrics
 
   def child_spec(opts) do
-    {_shp, _registry_name, _pool_size, _conn_opts, pool_max_idle_time, _start_pool_metrics?} =
+    {
+      _shp,
+      _registry_name,
+      _pool_size,
+      _conn_opts,
+      pool_max_idle_time,
+      _start_pool_metrics?,
+      _pool_idx
+    } =
       opts
 
     %{
@@ -18,13 +26,24 @@ defmodule Finch.HTTP1.Pool do
     }
   end
 
-  def start_link({shp, registry_name, pool_size, conn_opts, pool_max_idle_time, pool_metrics}) do
-    NimblePool.start_link(
-      worker: {__MODULE__, {registry_name, shp, conn_opts, pool_size, pool_metrics}},
-      pool_size: pool_size,
-      lazy: true,
-      worker_idle_timeout: pool_idle_timeout(pool_max_idle_time)
-    )
+  def start_link(
+        {shp, registry_name, pool_size, conn_opts, pool_max_idle_time, start_pool_metrics?,
+         pool_idx}
+      ) do
+    {:ok, pid} =
+      NimblePool.start_link(
+        worker: {__MODULE__, {registry_name, shp, pool_idx, conn_opts}},
+        pool_size: pool_size,
+        lazy: true,
+        worker_idle_timeout: pool_idle_timeout(pool_max_idle_time)
+      )
+
+    {:ok, metric_ref} =
+      if start_pool_metrics?,
+        do: PoolMetrics.init(registry_name, shp, pool_idx, pool_size),
+        else: {:ok, nil}
+
+    {:ok, pid, metric_ref}
   end
 
   @impl Finch.Pool
@@ -124,20 +143,30 @@ defmodule Finch.HTTP1.Pool do
 
   @impl Finch.Pool
   def get_pool_status(finch_name, shp) do
-    PoolMetrics.get_pool_status(finch_name, shp)
+    case Finch.PoolManager.get_metrics_refs(finch_name, shp) do
+      nil ->
+        {:error, :not_found}
+
+      refs ->
+        resp =
+          refs
+          |> Enum.map(&PoolMetrics.get_pool_status/1)
+          |> Enum.map(fn {:ok, metrics} -> metrics end)
+
+        {:ok, resp}
+    end
   end
 
   @impl NimblePool
-  def init_pool({registry, shp, opts, pool_size, start_pool_metrics?}) do
-    if start_pool_metrics?, do: {:ok, _} = PoolMetrics.init(registry, shp, pool_size)
+  def init_pool({registry, shp, pool_idx, opts}) do
     # Register our pool with our module name as the key. This allows the caller
     # to determine the correct pool module to use to make the request
     {:ok, _} = Registry.register(registry, shp, __MODULE__)
-    {:ok, {registry, shp, opts}}
+    {:ok, {registry, shp, pool_idx, opts}}
   end
 
   @impl NimblePool
-  def init_worker({_name, {scheme, host, port}, opts} = pool_state) do
+  def init_worker({_name, {scheme, host, port}, _pool_idx, opts} = pool_state) do
     {:ok, Conn.new(scheme, host, port, opts, self()), pool_state}
   end
 
@@ -157,7 +186,7 @@ defmodule Finch.HTTP1.Pool do
       {:ok, {:reuse, conn, idle_time}, conn, pool_state}
     else
       false ->
-        {_name, {scheme, host, port}, _opts} = pool_state
+        {_name, {scheme, host, port}, _pool_idx, _opts} = pool_state
 
         meta = %{
           scheme: scheme,
@@ -206,7 +235,7 @@ defmodule Finch.HTTP1.Pool do
 
   @impl NimblePool
   def handle_ping(_conn, pool_state) do
-    {_name, {scheme, host, port}, _opts} = pool_state
+    {_name, {scheme, host, port}, _pool_idx, _opts} = pool_state
 
     meta = %{
       scheme: scheme,
